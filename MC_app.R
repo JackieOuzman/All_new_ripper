@@ -5,20 +5,34 @@ library(dplyr)
 library(ggplot2)
 library(purrr)
 
-
+#####################################################################################################################################
 ui <- fluidPage(
   numericInput("n_obs_input", label = h3("Number of observation"), value = 1),
   numericInput("mean_input", label = h3("mean yield"), value = 1),
   numericInput("sd_input", label = h3("SD yield"), value = 1),
 
+  # 1. collect parameter grids in list display it: 
   tableOutput("value"),
-  #tableOutput("MC_DF"),
+  
+  # 2. after using MonteCarlo simulations return a df and display it:
+  tableOutput("MC_DF"),
+  
+  # 3. calulate summary stats on the MC simulation and display it:
   tableOutput("MC_Summary_stats"),
+  
+  # 4. Plot the results
   plotOutput("plot")
 )
 
+
+
+######################################################################################################################################
 server <- function(input, output, session) {
-  #### reactive elements
+  
+  ############################################################
+  ################   reactive elements   #####################
+  ############################################################
+  
   # 1. collect parameter grids in list and make it reactive:
   param_list <- reactive({
     param_list = list(n = input$n_obs_input, "loc" = input$mean_input, "scale" = input$sd_input)
@@ -28,6 +42,7 @@ server <- function(input, output, session) {
   MC_results <- reactive({
     MC_result <- MonteCarlo(func=jaxs2, nrep=100, param_list=param_list(), ncpus=1)
     MC_result_df<-MakeFrame(MC_result)
+    MC_result_df ### do I need this line to return df?
     })  
    
   # 3. calulate summary stats on the MC simulation
@@ -40,11 +55,11 @@ server <- function(input, output, session) {
       set_names(nm = p_names) #purrr partial function turns uses quantiles for my list of data (p), everthing in brackets are argumnets for quatile function
     
     #now I can use it in my dplyr pipe workflow
-    MC_result_df_summary_stats1 <- MC_result_df %>% 
+    MC_result_df_summary_stats1 <- MC_results() %>% 
       summarize_at(vars(yeild_gain), funs(!!!p_funs))
     
     ### add other summary stats
-    MC_result_df_summary_stats2 <- MC_result_df %>%
+    MC_result_df_summary_stats2 <- MC_results() %>%
       summarise(IQR = IQR(yeild_gain),
                 mean = mean(yeild_gain),
                 median = median(yeild_gain))
@@ -55,29 +70,37 @@ server <- function(input, output, session) {
     MC_result_df_summary_stats
     })  
   
- 
-  #### outputs ####
+  ############################################################
+  ################       outputs         #####################
+  ############################################################ 
+  
+  # 1. collect parameter grids in list display it: 
   output$value <- renderTable({
     param_list() 
   })
   
+  # 2. after using MonteCarlo simulations return a df and display it:
   output$MC_DF <- renderTable({
     MC_results() 
   })
   
+  # 3. calulate summary stats on the MC simulation and display it:
   output$MC_Summary_stats <- renderTable({
     MC_results_summary_stats() 
   })
   
-  # plot the results
+  # 4. plot the results
   output$plot <- renderPlot({
     MC_results() %>% 
       ggplot(aes(x = yeild_gain)) + 
       geom_density()
       
   })
-###### could put this bit in the global file??
-  ####This is the function used to calulate the base yield histogram and how to run Economic analysis on it
+  
+######################################################################################################################################  
+######                                            global file                 ########################################################
+######################################################################################################################################
+####This is the function used to calulate the base yield histogram and how to run Economic analysis on it
   
   jaxs2<-function(n,loc,scale){
     
@@ -86,7 +109,7 @@ server <- function(input, output, session) {
     
     #Now I can acess values from the yield distribution and run a calulation
     #It is important to access one value at a time to run the calulations on - here I have pulled out random value from the yield distrubution
-    yeild_gain<- 100 * sample (sample1, size=1) #this works
+    yeild_gain<- 100 * sample (sample, size=1) #this works
     
     return(list("yeild_gain" = yeild_gain))
   }
