@@ -39,6 +39,7 @@ server <- function(input, output, session) {
     })
   
   # 2. use MonteCarlo simulations and make the output reactive: Note I have hard coded the number of reps and I am returning a df
+  ## Note I am having trouble accessing the function jax2 - needs to be run first??
   MC_results <- reactive({
     MC_result <- MonteCarlo(func=jaxs2, nrep=100, param_list=param_list(), ncpus=1)
     MC_result_df<-MakeFrame(MC_result)
