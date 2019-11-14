@@ -45,29 +45,10 @@ server <- function(input, output, session) {
     MC_result_df ### do I need this line to return df?
     })  
    
-  # 3. calulate summary stats on the MC simulation
+  # 3. calulate summary stats on the MC simulation - 
+  # this is calling the function MC_summary stats and used results from 2 as input.
   MC_results_summary_stats <- reactive({
-    #Note adding in the percentiles requires additional steps
-    p <- c(0.1, 0.5, 0.9) #create the percentiles that you want to plot
-    p_names <- map_chr(p, ~paste0(.x*100, "%")) #turns into names ?used for headings
-    
-    p_funs <- map(p, ~partial(quantile, probs = .x, na.rm = TRUE)) %>% 
-      set_names(nm = p_names) #purrr partial function turns uses quantiles for my list of data (p), everthing in brackets are argumnets for quatile function
-    
-    #now I can use it in my dplyr pipe workflow
-    MC_result_df_summary_stats1 <- MC_results() %>% 
-      summarize_at(vars(yeild_gain), funs(!!!p_funs))
-    
-    ### add other summary stats
-    MC_result_df_summary_stats2 <- MC_results() %>%
-      summarise(IQR = IQR(yeild_gain),
-                mean = mean(yeild_gain),
-                median = median(yeild_gain))
-    ##Join together
-    MC_result_df_summary_stats1
-    MC_result_df_summary_stats2
-    MC_result_df_summary_stats <- cbind(MC_result_df_summary_stats1, MC_result_df_summary_stats2)                                      
-    MC_result_df_summary_stats
+    MC_summary_stats(MC_results())
     })  
   
   ############################################################
@@ -98,9 +79,11 @@ server <- function(input, output, session) {
   })
   
 ######################################################################################################################################  
-######                                            global file                 ########################################################
+######                                            global file   - fuctions    ########################################################
 ######################################################################################################################################
-####This is the function used to calulate the base yield histogram and how to run Economic analysis on it
+
+  
+  # 1. function that will calulate the base yield histogram and how to run cconomic analysis on it (just dummy cal for now)
   
   jaxs2<-function(n,loc,scale){
     
@@ -112,6 +95,32 @@ server <- function(input, output, session) {
     yeild_gain<- 100 * sample (sample, size=1) #this works
     
     return(list("yeild_gain" = yeild_gain))
+  }
+  
+  # 2. function that will run some summary stats on MC_df results:
+  MC_summary_stats <- function(MC_results){
+    
+    # A. Summary stats using dplyr - first step is adding in the percentiles- this requires additional work
+    p <- c(0.1, 0.5, 0.9) #create the percentiles that you want to plot
+    p_names <- map_chr(p, ~paste0(.x*100, "%")) #turns into names - used for headings
+    
+    p_funs <- map(p, ~partial(quantile, probs = .x, na.rm = TRUE)) %>% 
+      set_names(nm = p_names) #purrr partial function turns uses quantiles for my list of data (p), everthing in brackets are argumnets for quatile function
+    
+    # B. Use step A in dplyr pipe workflow
+    MC_result_df_summary_stats1 <- MC_results %>% 
+      summarize_at(vars(yeild_gain), funs(!!!p_funs))
+    
+    # C. cal other summary stats using dplyr workflow
+    MC_result_df_summary_stats2 <- MC_results %>%
+      summarise(IQR = IQR(yeild_gain),
+                mean = mean(yeild_gain),
+                median = median(yeild_gain))
+    # D. Join together summary stats part B and C together
+    
+    
+    MC_result_df_summary_stats <- cbind(MC_result_df_summary_stats1, MC_result_df_summary_stats2)                                      
+    MC_result_df_summary_stats
   }
   
   
