@@ -12,10 +12,10 @@ ui <- fluidPage(
   numericInput("sd_input", label = h3("SD yield"), value = 1),
 
   # 1. collect parameter grids in list display it: 
-  tableOutput("value"),
+  #tableOutput("value"),
   
   # 2. after using MonteCarlo simulations return a df and display it:
-  tableOutput("MC_DF"),
+  #tableOutput("MC_DF"),
   
   # 3. calulate summary stats on the MC simulation and display it:
   tableOutput("MC_Summary_stats"),
@@ -33,15 +33,26 @@ server <- function(input, output, session) {
   ################   reactive elements   #####################
   ############################################################
   
+  
   # 1. collect parameter grids in list and make it reactive:
+  #the parameter setting will now be hard coded
+  n_obs_input <- rep(seq(2,5,by = 0.2), 10) #this is the rough max and min with number of samples
+  shape = 5 #the shape controls the shape of the distrbution, smaller numbers will make the distribution skew to the left
+  scale = 5 #controls the varaibility of the data, sharp curves with small tails or flats curves with long tails smaller values give you flatter curves
+  # mean_input <- 1
+  # sd_input <- 1
+  # param_list <- reactive({
+  #   param_list = list(n = n_obs_input, "loc" = mean_input, "scale" = sd_input)
+  #   })
+  
   param_list <- reactive({
-    param_list = list(n = input$n_obs_input, "loc" = input$mean_input, "scale" = input$sd_input)
-    })
+    param_list = list("n" = n_obs_input, "shape" = shape, "scale" = scale)
+  })
   
   # 2. use MonteCarlo simulations and make the output reactive: Note I have hard coded the number of reps and I am returning a df
   ## Note I am having trouble accessing the function jax2 - needs to be run first??
   MC_results <- reactive({
-    MC_result <- MonteCarlo(func=jaxs2, nrep=100, param_list=param_list(), ncpus=1)
+    MC_result <- MonteCarlo(func=jaxs2, nrep=10, param_list=param_list(), ncpus=1)
     MC_result_df<-MakeFrame(MC_result)
     MC_result_df ### do I need this line to return df?
     })  
@@ -86,14 +97,14 @@ server <- function(input, output, session) {
   
   # 1. function that will calulate the base yield histogram and how to run cconomic analysis on it (just dummy cal for now)
   
-  jaxs2<-function(n,loc,scale){
+  jaxs2<-function(n,shape,scale){
     
     #this sets up the input yield distribution
-    sample<-rnorm(n, loc, scale) 
-    
+    sample <- rllogis(n, shape , scale)
+   
     #Now I can acess values from the yield distribution and run a calulation
     #It is important to access one value at a time to run the calulations on - here I have pulled out random value from the yield distrubution
-    yeild_gain<- 100 * sample (sample, size=1) #this works
+    yeild_gain<- 1 * sample (sample, size=1) #this works
     
     return(list("yeild_gain" = yeild_gain))
   }
