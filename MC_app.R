@@ -53,6 +53,9 @@ server <- function(input, output, session) {
     
   })
   
+  
+  
+  
   # 1. collect parameter grids in list and make it reactive:
   #the parameter setting will now be hard coded
   #n_obs_input <- rep(seq(2,5,by = 0.2), 10) #this is the rough max and min with number of samples
@@ -171,8 +174,19 @@ server <- function(input, output, session) {
                             N_applied = N_applied,
                             cost_N = cost_N,
                             variable_costs = variable_costs)
-    return(base_farm)
-  }
+    
+    base_farm_GM <- mutate(base_farm,
+                           wheat_revenue = (wheat_yld*  area)*port_price,
+                           direct_expenses = ((N_applied * (cost_N / 1000)) * area) + (variable_costs * area) ,
+                           GM = wheat_revenue - direct_expenses
+                            )
+    return(base_farm_GM)
+   }
+   
+   
+   
+   
+   
   
 }
 shinyApp(ui, server)
