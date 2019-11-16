@@ -98,7 +98,7 @@ server <- function(input, output, session) {
   # 3. calulate summary stats on the MC simulation - 
   # this is calling the function MC_summary stats and used results from 2 as input.
   MC_results_summary_stats <- reactive({
-    MC_summary_stats(MC_results())
+    MC_summary_stats(MC_results1_5())
     })  
   
   ############################################################
@@ -132,8 +132,8 @@ server <- function(input, output, session) {
   
   # 4. plot the results
   output$plot <- renderPlot({
-    MC_results() %>% 
-      ggplot(aes(x = base_yld)) + 
+    MC_results1_5() %>% 
+      ggplot(aes(x = GM_yr1)) + 
       geom_density()
       
   })
@@ -197,25 +197,17 @@ server <- function(input, output, session) {
     
     #adjust the base yield based on FACTOR_yr1 here its 10
     MC_results_yr1_5_adjust_yld <-  mutate(MC_results_yr1_5_base_yld,
-                                           yld_yr1_adjust =  yld_yr1 *10)  
+                                           yld_yr1_adjust =  yld_yr1 *10,
+                                           yld_yr2_adjust =  yld_yr1 *1)  
     
-    #Cal the GM on adjusted yr 1 yield 
+    #Cal the GM on adjusted yr 1 and 2 yield 
     MC_results_yr1_5_GM <-  mutate(MC_results_yr1_5_adjust_yld,
-                                   #GM_yr1 = ((yld_yr1_adjust *400)*250) -
-                                   #  ((200 * (560 /1000) *400) + (185 *400))
-                                   GM_yr1 = ((yld_yr1_adjust *area)*port_price) -
+                                     GM_yr1 = ((yld_yr1_adjust *area)*port_price) -
+                                     ((N_applied * (cost_N /1000) *area) + (variable_costs *area)),
+                                     GM_yr2 = ((yld_yr2_adjust *area)*port_price) -
                                      ((N_applied * (cost_N /1000) *area) + (variable_costs *area))
-                                   )#mutate bracket
+                                   )
                                     
-                                  # GM_yr1 = ((yld_yr1_adjust *  400)*250)) -
-                                  #(((200 * (560 / 1000)) * 400) + (185 * 400))
-                                   #GM_yr1 = ((yld_yr1_adjust *  area)*port_price)) -
-                                   #(((N_applied * (cost_N / 1000)) * area) + (variable_costs * area))
-                             
-                             #GM = wheat_revenue - direct_expenses
-                             #GM_yr1 = ((base_yld *  area)*port_price)) -
-                             #(((N_applied * (cost_N / 1000)) * area) + (variable_costs * area)
-                             
     MC_results_yr1_5_GM
   }
   
@@ -229,20 +221,36 @@ server <- function(input, output, session) {
     p_funs <- map(p, ~partial(quantile, probs = .x, na.rm = TRUE)) %>% 
       set_names(nm = p_names) #purrr partial function turns uses quantiles for my list of data (p), everthing in brackets are argumnets for quatile function
     
-    # B. Use step A in dplyr pipe workflow
-    MC_result_df_summary_stats1 <- MC_results %>% 
-      summarize_at(vars(base_yld), funs(!!!p_funs))
+    # B. Use step A in dplyr pipe workflow for Yr1
+    MC_result_df_summary_stats_yr1 <- MC_results %>% 
+      summarize_at(vars(GM_yr1), funs(!!!p_funs))
+    # B. Use step A in dplyr pipe workflow for Yr2
+    MC_result_df_summary_stats_yr2 <- MC_results %>% 
+      summarize_at(vars(GM_yr2), funs(!!!p_funs))
     
-    # C. cal other summary stats using dplyr workflow
-    MC_result_df_summary_stats2 <- MC_results %>%
-      summarise(IQR = IQR(base_yld),
-                mean = mean(base_yld),
-                median = median(base_yld))
-    # D. Join together summary stats part B and C together
+    # C. cal other summary stats using dplyr workflow for Yr1
+    MC_result_df_summary_stats2_yr1 <- MC_results %>%
+      summarise(IQR = IQR(GM_yr1),
+                mean = mean(GM_yr1),
+                median = median(GM_yr1))
+    # C. cal other summary stats using dplyr workflow for Yr2
+    MC_result_df_summary_stats2_yr2 <- MC_results %>%
+      summarise(IQR = IQR(GM_yr2),
+                mean = mean(GM_yr2),
+                median = median(GM_yr2))
     
+    # D. Join together summary stats part B and C together and add name Yr1
+    MC_result_df_summary_stats_1 <- cbind(MC_result_df_summary_stats_yr1, MC_result_df_summary_stats2_yr1)                                      
+    MC_result_df_summary_stats_1 <- mutate(MC_result_df_summary_stats_1,
+                                         name = "GM_yr1")
+    # D. Join together summary stats part B and C together and add name Yr2
+    MC_result_df_summary_stats_2 <- cbind(MC_result_df_summary_stats_yr2, MC_result_df_summary_stats2_yr2)                                      
+    MC_result_df_summary_stats_2 <- mutate(MC_result_df_summary_stats_2,
+                                           name = "GM_yr2")
     
-    MC_result_df_summary_stats <- cbind(MC_result_df_summary_stats1, MC_result_df_summary_stats2)                                      
-    MC_result_df_summary_stats
+    # E. Append the summary data togthers for years
+    MC_result_df_summary_stats <- rbind(MC_result_df_summary_stats_1,
+                                        MC_result_df_summary_stats_2)
   }
   
   
