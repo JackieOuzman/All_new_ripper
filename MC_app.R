@@ -4,6 +4,7 @@ library(MonteCarlo)
 library(dplyr)
 library(ggplot2)
 library(purrr)
+library(actuar)
 
 #####################################################################################################################################
 ui <- fluidPage(
@@ -17,11 +18,14 @@ ui <- fluidPage(
   #1a. collect base farm values:
   tableOutput("table1"),
   
-  # 1. collect parameter grids in list display it: 
+  # 1b. collect parameter grids in list display it: 
   #tableOutput("value"),
   
   # 2. after using MonteCarlo simulations return a df and display it:
-  #tableOutput("MC_DF"),
+  tableOutput("MC_DF"),
+  
+   #1c. after using MonteCarlo simulations return a df and display it:
+  tableOutput("MC_results1_5"),
   
   # 3. calulate summary stats on the MC simulation and display it:
   tableOutput("MC_Summary_stats"),
@@ -54,12 +58,10 @@ server <- function(input, output, session) {
   })
   
   
-  
-  
-  # 1. collect parameter grids in list and make it reactive:
+    # 1b. collect parameter grids in list and make it reactive:
   #the parameter setting will now be hard coded
   #n_obs_input <- rep(seq(2,5,by = 0.2), 10) #this is the rough max and min with number of samples
-  n_obs_input <- 1000
+  n_obs_input <- 10
   shape = 5 #the shape controls the shape of the distrbution, smaller numbers will make the distribution skew to the left
   scale = 5 #controls the varaibility of the data, sharp curves with small tails or flats curves with long tails smaller values give you flatter curves
  
@@ -67,14 +69,32 @@ server <- function(input, output, session) {
     param_list = list("n" = n_obs_input, "shape" = shape, "scale" = scale)
   })
   
+  
+  
   # 2. use MonteCarlo simulations and make the output reactive: Note I have hard coded the number of reps and I am returning a df
   ## Note I am having trouble accessing the function jax2 - needs to be run first??
   MC_results <- reactive({
-    MC_result <- MonteCarlo(func=jaxs2, nrep=1000, param_list=param_list(), ncpus=1)
+    MC_result <- MonteCarlo(func=jaxs2, nrep=10, param_list=param_list(), ncpus=1)
     MC_result_df<-MakeFrame(MC_result)
     MC_result_df ### do I need this line to return df?
     })  
    
+  
+  # 1c. function that uses output from MC base yld to cal adjusted yld and GM:
+  MC_results1_5 <- reactive({
+    #browser()
+    function_MC_results1_5(MC_results()) #,
+                            #yr1_factor,
+                            # input$port_price,
+                            # input$wheat_yld,
+                            # input$area,
+                            # input$N_applied,
+                            # input$cost_N,
+                            # input$variable_costs)
+    
+    
+  })
+  
   # 3. calulate summary stats on the MC simulation - 
   # this is calling the function MC_summary stats and used results from 2 as input.
   MC_results_summary_stats <- reactive({
@@ -90,7 +110,7 @@ server <- function(input, output, session) {
     making_base_farm()
   })
   
-  # 1. collect parameter grids in list display it: 
+  # 1b. collect parameter grids in list display it: 
   output$value <- renderTable({
     param_list() 
   })
@@ -98,6 +118,11 @@ server <- function(input, output, session) {
   # 2. after using MonteCarlo simulations return a df and display it:
   output$MC_DF <- renderTable({
     MC_results() 
+  })
+  
+  # 1c. Using MonteCarlo simulations df to modify yld and run GM:
+  output$MC_results1_5 <- renderTable({
+    MC_results1_5() 
   })
   
   # 3. calulate summary stats on the MC simulation and display it:
@@ -118,7 +143,32 @@ server <- function(input, output, session) {
 ######################################################################################################################################
 
   
-  # 1. function that will calulate the base yield histogram and how to run cconomic analysis on it (just dummy cal for now)
+  yr1_factor <- 1
+  
+  # 1a. function that collect base farm values:
+  function_making_base_farm <-  function(port_price, wheat_yld, area, 
+                                         N_applied, cost_N, variable_costs){
+    
+    base_farm <- data.frame(site_number = "xxxx", #user defined
+                            year = 1:5,
+                            crop = "wheat",
+                            port_price =  port_price,
+                            wheat_yld = wheat_yld,
+                            area = area,
+                            N_applied = N_applied,
+                            cost_N = cost_N,
+                            variable_costs = variable_costs)
+    
+    base_farm_GM <- mutate(base_farm,
+                           wheat_revenue = (wheat_yld*  area)*port_price,
+                           direct_expenses = ((N_applied * (cost_N / 1000)) * area) + (variable_costs * area) ,
+                           GM = wheat_revenue - direct_expenses
+    )
+    return(base_farm_GM)
+  }
+  
+  
+  # 1b. function that collect parameter grids in list display it: 
   
   jaxs2<-function(n,shape,scale){
     
@@ -134,7 +184,25 @@ server <- function(input, output, session) {
     return(list("base_yld" = base_yld))
   }
   
-  # 2. function that will run some summary stats on MC_df results:
+  # 1c. Take the MC simulation of base yield and run yield modification and GM, one clm for each year
+  
+  function_MC_results1_5 <-  function(MC_result_df) # , 
+                                      #yr1_factor,
+                                      #port_price, wheat_yld, area, 
+                                      #N_applied, cost_N, variable_costs
+                                      {
+    
+    MC_results_yr1_5 <- mutate(MC_result_df,
+                             yld_yr1 = base_yld #,
+                             
+                             #GM = wheat_revenue - direct_expenses
+                             #GM_yr1 = ((base_yld *  area)*port_price)) -
+                             #(((N_applied * (cost_N / 1000)) * area) + (variable_costs * area)
+                             )
+    MC_results_yr1_5
+  }
+  
+  # 3. function that will run some summary stats on MC_df results:
   MC_summary_stats <- function(MC_results){
     
     # A. Summary stats using dplyr - first step is adding in the percentiles- this requires additional work
@@ -161,32 +229,7 @@ server <- function(input, output, session) {
   }
   
   
-  # 1a. function that collect base farm values:
-   function_making_base_farm <-  function(port_price, wheat_yld, area, 
-                                         N_applied, cost_N, variable_costs){
-     
-    base_farm <- data.frame(site_number = "xxxx", #user defined
-                            year = 1:5,
-                            crop = "wheat",
-                            port_price =  port_price,
-                            wheat_yld = wheat_yld,
-                            area = area,
-                            N_applied = N_applied,
-                            cost_N = cost_N,
-                            variable_costs = variable_costs)
-    
-    base_farm_GM <- mutate(base_farm,
-                           wheat_revenue = (wheat_yld*  area)*port_price,
-                           direct_expenses = ((N_applied * (cost_N / 1000)) * area) + (variable_costs * area) ,
-                           GM = wheat_revenue - direct_expenses
-                            )
-    return(base_farm_GM)
-   }
-   
-   
-   
-   
-   
+  
   
 }
 shinyApp(ui, server)
