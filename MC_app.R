@@ -24,7 +24,7 @@ ui <- fluidPage(
   # 2. after using MonteCarlo simulations return a df and display it:
   tableOutput("MC_DF"),
   
-   #1c. after using MonteCarlo simulations return a df and display it:
+   #1c. after using MonteCarlo simulations return a df and display it with additional cals:
   tableOutput("MC_results1_5"),
   
   # 3. calulate summary stats on the MC simulation and display it:
@@ -76,21 +76,21 @@ server <- function(input, output, session) {
   MC_results <- reactive({
     MC_result <- MonteCarlo(func=jaxs2, nrep=10, param_list=param_list(), ncpus=1)
     MC_result_df<-MakeFrame(MC_result)
-    MC_result_df ### do I need this line to return df?
+    MC_result_df 
     })  
    
   
   # 1c. function that uses output from MC base yld to cal adjusted yld and GM:
   MC_results1_5 <- reactive({
     #browser()
-    function_MC_results1_5(MC_results()) #,
+    function_MC_results1_5(MC_results(),
                             #yr1_factor,
-                            # input$port_price,
-                            # input$wheat_yld,
-                            # input$area,
-                            # input$N_applied,
-                            # input$cost_N,
-                            # input$variable_costs)
+                             input$port_price,
+                             input$wheat_yld,
+                             input$area,
+                             input$N_applied,
+                             input$cost_N,
+                             input$variable_costs)
     
     
   })
@@ -186,20 +186,37 @@ server <- function(input, output, session) {
   
   # 1c. Take the MC simulation of base yield and run yield modification and GM, one clm for each year
   
-  function_MC_results1_5 <-  function(MC_result_df) # , 
+  function_MC_results1_5 <-  function(MC_result_df , 
                                       #yr1_factor,
-                                      #port_price, wheat_yld, area, 
-                                      #N_applied, cost_N, variable_costs
+                                      port_price, wheat_yld, area, 
+                                      N_applied, cost_N, variable_costs)
                                       {
     
-    MC_results_yr1_5 <- mutate(MC_result_df,
-                             yld_yr1 = base_yld #,
+    MC_results_yr1_5_base_yld <- mutate(MC_result_df,
+                             yld_yr1 = base_yld)
+    
+    #adjust the base yield based on FACTOR_yr1 here its 10
+    MC_results_yr1_5_adjust_yld <-  mutate(MC_results_yr1_5_base_yld,
+                                           yld_yr1_adjust =  yld_yr1 *10)  
+    
+    #Cal the GM on adjusted yr 1 yield 
+    MC_results_yr1_5_GM <-  mutate(MC_results_yr1_5_adjust_yld,
+                                   #GM_yr1 = ((yld_yr1_adjust *400)*250) -
+                                   #  ((200 * (560 /1000) *400) + (185 *400))
+                                   GM_yr1 = ((yld_yr1_adjust *area)*port_price) -
+                                     ((N_applied * (cost_N /1000) *area) + (variable_costs *area))
+                                   )#mutate bracket
+                                    
+                                  # GM_yr1 = ((yld_yr1_adjust *  400)*250)) -
+                                  #(((200 * (560 / 1000)) * 400) + (185 * 400))
+                                   #GM_yr1 = ((yld_yr1_adjust *  area)*port_price)) -
+                                   #(((N_applied * (cost_N / 1000)) * area) + (variable_costs * area))
                              
                              #GM = wheat_revenue - direct_expenses
                              #GM_yr1 = ((base_yld *  area)*port_price)) -
                              #(((N_applied * (cost_N / 1000)) * area) + (variable_costs * area)
-                             )
-    MC_results_yr1_5
+                             
+    MC_results_yr1_5_GM
   }
   
   # 3. function that will run some summary stats on MC_df results:
