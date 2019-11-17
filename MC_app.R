@@ -14,6 +14,7 @@ ui <- fluidPage(
   numericInput("N_applied", label = h3("N applied kg/ha"), value = 200),
   numericInput("cost_N", label = h3("cost of N $/t"), value = 560),
   numericInput("variable_costs", label = h3("variable costs $/ha"), value = 185),
+  numericInput("location", label = h3("P50 medium yield"), value = 2),
   
   #1a. collect base farm values:
   tableOutput("table1"),
@@ -64,9 +65,9 @@ server <- function(input, output, session) {
   n_obs_input <- 10
   shape = 5 #the shape controls the shape of the distrbution, smaller numbers will make the distribution skew to the left
   scale = 5 #controls the varaibility of the data, sharp curves with small tails or flats curves with long tails smaller values give you flatter curves
- 
+  #location = 2
   param_list <- reactive({
-    param_list = list("n" = n_obs_input, "shape" = shape, "scale" = scale)
+    param_list = list("n" = n_obs_input, "shape" = shape, "scale" = scale, "location" = input$location)
   })
   
   
@@ -74,7 +75,7 @@ server <- function(input, output, session) {
   # 2. use MonteCarlo simulations and make the output reactive: Note I have hard coded the number of reps and I am returning a df
   ## Note I am having trouble accessing the function jax2 - needs to be run first??
   MC_results <- reactive({
-    MC_result <- MonteCarlo(func=jaxs2, nrep=10, param_list=param_list(), ncpus=1)
+    MC_result <- MonteCarlo(func=jaxs2, nrep=10, param_list=param_list(),  ncpus=1)
     MC_result_df<-MakeFrame(MC_result)
     MC_result_df 
     })  
@@ -170,12 +171,12 @@ server <- function(input, output, session) {
   
   # 1b. function that collect parameter grids in list display it: 
   
-  jaxs2<-function(n,shape,scale){
+  jaxs2<-function(n,shape,scale, location){
     
     #this sets up the input yield distribution
     #set.seed(16)
     base_yld1 <- (rllogis(n, shape , scale))
-    base_yld <- base_yld1 * 5 #this step convert my distrubution into values I want
+    base_yld <- base_yld1 + location #this step convert my distrubution into values I want mean yield
    
     #Now I can acess values from the yield distribution and run a calulation
     #It is important to access one value at a time to run the calulations on - here I have pulled out random value from the yield distrubution
@@ -197,8 +198,8 @@ server <- function(input, output, session) {
     
     #adjust the base yield based on FACTOR_yr1 here its 10
     MC_results_yr1_5_adjust_yld <-  mutate(MC_results_yr1_5_base_yld,
-                                           yld_yr1_adjust =  yld_yr1 *10,
-                                           yld_yr2_adjust =  yld_yr1 *1)  
+                                           yld_yr1_adjust =  yld_yr1 +2,
+                                           yld_yr2_adjust =  yld_yr1 +3)  
     
     #Cal the GM on adjusted yr 1 and 2 yield 
     MC_results_yr1_5_GM <-  mutate(MC_results_yr1_5_adjust_yld,

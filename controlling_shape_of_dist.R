@@ -73,7 +73,7 @@ summary(test_rllogis5_5_100)
 
 #### How to shift the distrbution  to left or right?
 # multiple the distribution by a value to slide it right - needs to be positive (negative for left)
-test_rllogis5_5_1_0.1 <- (rllogis(10000, shape = 5 , scale = 5, rate = 1))*0.1
+test_rllogis5_5_1_0.1 <- (rllogis(10000, shape = 5 , scale = 5, rate = 1))+10
 hist(test_rllogis5_5_1_0.1)
 summary(test_rllogis5_5_1_0.1)
 
@@ -95,8 +95,28 @@ head(n_2_5)
 summary(n_2_5)
 str(n_2_5)
 # I am using this as input for my distrbution curve
-test_rllogis_n_2_5values <- (rllogis(n_2_5, shape = 5 , scale = 5))
+test_rllogis_n_2_5values <- (rllogis(16000, shape = 5 , scale = 5))
 hist(test_rllogis_n_2_5values)
 summary(test_rllogis_n_2_5values)
+
+set.seed(16)
+test_multipler_05 <- test_rllogis_n_2_5values * 0.5
+hist(test_multipler_05)
+summary(test_multipler_05)
+quantile(test_multipler_05,  probs = c(0.5, 1.0, 2.5, 50, 75, 90, 95, NA)/100)
+
+set.seed(16)
+test_multipler_051 <- test_rllogis_n_2_5values * 0.51
+hist(test_multipler_051)
+summary(test_multipler_051)
+quantile(test_multipler_051,  probs = c(0.5, 1.0, 2.5, 50, 75, 90, 95, NA)/100)
+
+set.seed(16)
+test_multipler_052 <- test_rllogis_n_2_5values * 0.48
+hist(test_multipler_052)
+summary(test_multipler_052)
+quantile(test_multipler_052,  probs = c(0.5, 1.0, 2.5, 50, 75, 90, 95, NA)/100)
+
+
 
 #then I can multiple the whole dirstubution to side the yield in one direction....
