@@ -16,11 +16,30 @@ ui <- fluidPage(
   numericInput("variable_costs", label = h3("variable costs $/ha"), value = 185),
   numericInput("location", label = h3("P50 medium yield"), value = 2),
   
+  selectizeInput("year_for_ripping", 
+                 label = h4("Ripping applied in which year?"),
+                 choices = list('year 1' = "1",
+                                'year 2' = "2",
+                                'year 3' = "3",
+                                'year 4' = "4",
+                                'year 5' = "5"),
+                 selected = 1,
+                 multiple = TRUE),
+  
+  checkboxGroupInput(
+    "mangement_option",
+    label = h3("What are you considering?"),
+    choices = list("shallow ripping with inputs" = "shallow_ripping_with_inputs"), 
+    selected = "shallow_ripping_with_inputs"),
+  
   #1a. collect base farm values:
   tableOutput("table1"),
   
   # 1b. collect parameter grids in list display it: 
   #tableOutput("value"),
+  
+  # 1d. display df for year of ripping: 
+  tableOutput("year_for_ripping"),
   
   # 2. after using MonteCarlo simulations return a df and display it:
   tableOutput("MC_DF"),
@@ -58,19 +77,21 @@ server <- function(input, output, session) {
     
   })
   
-  
     # 1b. collect parameter grids in list and make it reactive:
   #the parameter setting will now be hard coded
   #n_obs_input <- rep(seq(2,5,by = 0.2), 10) #this is the rough max and min with number of samples
   n_obs_input <- 10
   shape = 5 #the shape controls the shape of the distrbution, smaller numbers will make the distribution skew to the left
   scale = 5 #controls the varaibility of the data, sharp curves with small tails or flats curves with long tails smaller values give you flatter curves
-  #location = 2
+  #location is selected by the users and shifts the yield distrbution left or right
   param_list <- reactive({
     param_list = list("n" = n_obs_input, "shape" = shape, "scale" = scale, "location" = input$location)
   })
   
-  
+  # 1d year of ripping as reactive
+  year_for_ripping <- reactive({
+    function_year_ripping(input$mangement_option, input$year_for_ripping)
+  })
   
   # 2. use MonteCarlo simulations and make the output reactive: Note I have hard coded the number of reps and I am returning a df
   ## Note I am having trouble accessing the function jax2 - needs to be run first??
@@ -114,6 +135,11 @@ server <- function(input, output, session) {
   # 1b. collect parameter grids in list display it: 
   output$value <- renderTable({
     param_list() 
+  })
+  
+  # 1d. df for year of ripping for display: 
+  output$year_for_ripping <- renderTable({
+    year_for_ripping()
   })
   
   # 2. after using MonteCarlo simulations return a df and display it:
@@ -210,6 +236,36 @@ server <- function(input, output, session) {
                                    )
                                     
     MC_results_yr1_5_GM
+  }
+  
+  # 1d.
+  function_year_ripping <-function(mangement_option, 
+                                   year_for_ripping){
+    #shallow_input_cost, 
+    #deep_input_cost, 
+    #year_for_ripping_deep) 
+    
+    
+    #create a list of treatments the user wants to explore
+    list <- data.frame(managment_option = mangement_option)
+    
+    #create a dataframe of cost and years applied for treatment option 1 
+    shallow_input_cost_year <- data.frame(year = 1:5,
+                                          mangement_option = "shallow_ripping_with_inputs",
+                                          mangement_input_cost = 20) %>% 
+      mutate(ID = paste0(year,"_", mangement_option))
+    
+    #assign years applied to xxx_input_cost_year
+    years <- 1:5
+    years[!years %in% year_for_ripping] <- NA #look in years variable and see if we have match in what the user selected
+    shallow_input_cost_year$years_applied <- years
+    
+    shallow_input_cost_year <- mutate(shallow_input_cost_year,
+                                       cost_to_farm = case_when(
+                                         years_applied > 0 ~ mangement_input_cost
+                                       ))
+    
+    shallow_input_cost_year
   }
   
   # 3. function that will run some summary stats on MC_df results:
