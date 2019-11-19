@@ -105,7 +105,7 @@ server <- function(input, output, session) {
   # 1c. function that uses output from MC base yld to cal adjusted yld and GM:
   MC_results1_5 <- reactive({
     #browser()
-    function_MC_results1_5(MC_results(),
+    function_MC_results1_5(MC_results(),year_for_ripping(),
                             #yr1_factor,
                              input$port_price,
                              input$wheat_yld,
@@ -213,7 +213,7 @@ server <- function(input, output, session) {
   
   # 1c. Take the MC simulation of base yield and run yield modification and GM, one clm for each year
   
-  function_MC_results1_5 <-  function(MC_result_df , 
+  function_MC_results1_5 <-  function(MC_result_df, shallow_input_cost_year, 
                                       #yr1_factor,
                                       port_price, wheat_yld, area, 
                                       N_applied, cost_N, variable_costs)
@@ -222,17 +222,22 @@ server <- function(input, output, session) {
     MC_results_yr1_5_base_yld <- mutate(MC_result_df,
                              yld_yr1 = base_yld)
     
-    #adjust the base yield based on FACTOR_yr1 here its 10
+    #adjust the base yield based on FACTOR_yr1 here its 2 or 3
     MC_results_yr1_5_adjust_yld <-  mutate(MC_results_yr1_5_base_yld,
                                            yld_yr1_adjust =  yld_yr1 +2,
                                            yld_yr2_adjust =  yld_yr1 +3)  
+    
+    #access the cost to the farm values in the year ripping cost dataframe
+    cost_yr1 <- shallow_input_cost_year[1,6]
+    cost_yr2 <- shallow_input_cost_year[2,6]
     
     #Cal the GM on adjusted yr 1 and 2 yield 
     MC_results_yr1_5_GM <-  mutate(MC_results_yr1_5_adjust_yld,
                                      GM_yr1 = ((yld_yr1_adjust *area)*port_price) -
                                      ((N_applied * (cost_N /1000) *area) + (variable_costs *area)),
                                      GM_yr2 = ((yld_yr2_adjust *area)*port_price) -
-                                     ((N_applied * (cost_N /1000) *area) + (variable_costs *area))
+                                     ((N_applied * (cost_N /1000) *area) + (variable_costs *area)),
+                                     check_cost_to_farm = cost_yr1 #this will need to be added into the GM
                                    )
                                     
     MC_results_yr1_5_GM
